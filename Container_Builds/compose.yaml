@@ -1,5 +1,6 @@
 # Version is omitted due to no longer be necessary
 # Version: '3'
+# applicaiton name: guacamole-rdp-gw
 
 services:
   guacd-forwarder:
@@ -19,10 +20,12 @@ services:
         ipv4_address: 10.1.10.131
       guac-net:
         ipv4_address: 172.25.0.131 # Example IP, adjust as needed
-      dns:
-        - 172.30.0.30
-        - 172.30.0.29
-        - 10.1.10.5
+    dns:
+      - 172.30.0.30
+      - 172.30.0.29
+      - 10.1.10.5
+    dns_search:
+      - "example.us"
     stdin_open: true
     tty: true
     cap_add:
@@ -48,18 +51,19 @@ services:
     environment:
       GUACD_HOSTNAME: guacd-forwarder
       GUACD_PORT: 4822
-      MYSQL_HOSTNAME: QNAP-GuacamoleDB
+      MYSQL_HOSTNAME: QNAP-GuacamoleDB.homeenterprises.us # Should resolve to the DB IP on the guac-net subnet
       MYSQL_DATABASE: guacamole_db_on_qnap
-      MYSQL_USER: GuacamoleDB-admin
+      MYSQL_USERNAME: GuacamoleDB-admin
       MYSQL_PASSWORD: MariaDBUserPass # <<< Change this to a strong password
+      MYSQL_ENABLED: "true"
       MYSQL_PORT: 13307
+      MYSQL_DRIVER: "mariadb"
+      MYSQL_SERVER_TIMEZONE: "America/Chicago" # Set to your timezone
       TOTP_ENABLED: "false" # Enable/Disable TOTP (2FA) | Will be managed by SAML SSO
       WEBAPP_CONTEXT: "ROOT" # Change to desired context path, default is the guacamole subdirectory
       # Additional optional environment variables can be added here
     volumes:
       - /var/run/mariadb10.sock:/var/run/mysqld/mysqld.sock # QNAP MariaDB socket
-    ports:
-      - "8080:8080" # Or desired host port
     depends_on:
       - guacd-forwarder
     networks:
@@ -67,10 +71,12 @@ services:
         ipv4_address: 10.1.10.132
       guac-net:
         ipv4_address: 172.25.0.132 # Example IP, adjust as needed
-      dns:
-        - 172.30.0.30
-        - 172.30.0.29
-        - 10.1.10.5
+    dns:
+      - 172.30.0.30
+      - 172.30.0.29
+      - 10.1.10.5
+    dns_search:
+      - "example.us"
     stdin_open: true
     tty: true
     cap_add:
@@ -140,3 +146,39 @@ networks:
 # GRANT ALL PRIVILEGES ON guacamole_db_on_qnap.* TO 'GuacamoleDB-admin'@'192.168.98.0/255.255.254.0'; -- Grant privileges for the remote management subnet
 # GRANT ALL PRIVILEGES ON guacamole_db_on_qnap.* TO 'GuacamoleDB-admin'@'localhost'; -- Grant privileges for localhost
 # FLUSH PRIVILEGES;
+
+
+
+
+
+      #SAML_ENABLED: "true" # Enable/Disable SAML SSO
+      #SAML_IDP_METADATA_URL: "https://sso.example.us/idp/metadata" # URL to fetch IdP metadata
+      #SAML_ENTITY_ID: "https://guacamole.example.us/guacamole" # Entity ID for this SP
+      #SAML_ASSERTION_CONSUMER_SERVICE_URL: "https://guacamole.example.us/guacamole/api/ext/saml/acs" # ACS URL
+      #SAML_NAME_ID_FORMAT: "urn:oasis:names:tc:SAML:1.1:nameid-format:unspecified" # NameID format
+      #SAML_ATTRIBUTE_USERNAME: "uid" # Attribute for username
+      #SAML_ATTRIBUTE_EMAIL: "mail" # Attribute for email
+      #SAML_ATTRIBUTE_FIRST_NAME: "givenName" # Attribute for first name
+      #SAML_ATTRIBUTE_LAST_NAME: "sn" # Attribute for last name
+      #SAML_FORCE_AUTHN: "false" # Force re-authentication
+      #SAML_SIGN_ASSERTIONS: "true" # Sign assertions
+      #SAML_SIGN_REQUESTS: "true" # Sign authentication requests
+      #SAML_ENCRYPT_ASSERTIONS: "false" # Encrypt assertions
+      #SAML_IDP_CERTIFICATE: "" # Optional: IdP certificate for signature validation
+      #SAML_SP_PRIVATE_KEY: "" # Optional: SP private key for signing requests
+      #SAML_SP_CERTIFICATE: "" # Optional: SP certificate for signing requests
+      #SAML_METADATA_VALIDITY: "7" # Metadata validity in days
+      #SAML_METADATA_CACHE_DURATION: "PT24H" # Metadata cache duration (ISO 8601 format)
+      #SAML_AUTHN_CONTEXT_CLASS: "" # Optional: Requested AuthnContextClass
+      #SAML_WANT_ASSERTIONS_SIGNED: "true" # Require signed assertions
+      #SAML_WANT_ASSERTIONS_ENCRYPTED: "false" # Require encrypted assertions
+      #SAML_WANT_NAME_ID: "true" # Require NameID
+      #SAML_WANT_AUTHN_REQUESTS_SIGNED: "true" # Require signed AuthnRequests
+      #SAML_WANT_LOGOUT_REQUESTS_SIGNED: "false" # Require signed LogoutRequests
+      #SAML_WANT_LOGOUT_RESPONSES_SIGNED: "false" # Require signed LogoutResponses
+      #SAML_IDP_LOGOUT_URL: "" # Optional: IdP logout URL
+      #SAML_SP_LOGOUT_URL: "https://guacamole.example.us/guacamole/api/ext/saml/logout" # SP logout URL
+      #SAML_ALLOW_CREATE: "true" # Allow user creation
+      #SAML_GROUPS_ATTRIBUTE: "memberOf" # Attribute for groups
+      #SAML_GROUPS_PREFIX: "saml-" # Prefix for group names
+      #SAML_DEBUG: "false" # Enable SAML debug logging
