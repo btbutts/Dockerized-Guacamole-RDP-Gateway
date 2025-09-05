@@ -1,0 +1,142 @@
+# Version is omitted due to no longer be necessary
+# Version: '3'
+
+services:
+  guacd-forwarder:
+    image: guacamole/guacd:latest
+    build:
+      context: .
+      labels:
+        org.opencontainers.image.ref.name: "guacd-forwarder"
+        org.opencontainers.image.version: "1.6.0"
+        org.opencontainers.image.description: "Apache Guacamole Daemon Forwarder"
+        org.opencontainers.image.vendor: "Clarksville-Lab"
+    container_name: guacd-forwarder
+    hostname: guacd-forwarder
+    restart: 'no'
+    networks:
+      vl.110-servers:
+        ipv4_address: 10.1.10.131
+      guac-net:
+        ipv4_address: 172.25.0.131 # Example IP, adjust as needed
+      dns:
+        - 172.30.0.30
+        - 172.30.0.29
+        - 10.1.10.5
+    stdin_open: true
+    tty: true
+    cap_add:
+      - NET_ADMIN
+      - SYS_ADMIN
+      - SYS_MODULE
+      - NET_RAW
+
+  guacamole:
+    image: guacamole/guacamole:latest
+    build:
+      context: .
+      labels:
+        org.opencontainers.image.ref.name: "guacamole-frontend"
+        org.opencontainers.image.version: "1.6.0"
+        org.opencontainers.image.description: "Apache Guacamole Frontend"
+        org.opencontainers.image.vendor: "Clarksville-Lab"
+    container_name: guacamole-frontend
+    hostname: guacamole-frontend
+    group_add:
+      - "1000"
+    restart: 'no'
+    environment:
+      GUACD_HOSTNAME: guacd-forwarder
+      GUACD_PORT: 4822
+      MYSQL_HOSTNAME: QNAP-GuacamoleDB
+      MYSQL_DATABASE: guacamole_db_on_qnap
+      MYSQL_USER: GuacamoleDB-admin
+      MYSQL_PASSWORD: MariaDBUserPass # <<< Change this to a strong password
+      MYSQL_PORT: 13307
+      TOTP_ENABLED: "false" # Enable/Disable TOTP (2FA) | Will be managed by SAML SSO
+      WEBAPP_CONTEXT: "ROOT" # Change to desired context path, default is the guacamole subdirectory
+      # Additional optional environment variables can be added here
+    volumes:
+      - /var/run/mariadb10.sock:/var/run/mysqld/mysqld.sock # QNAP MariaDB socket
+    ports:
+      - "8080:8080" # Or desired host port
+    depends_on:
+      - guacd-forwarder
+    networks:
+      vl.110-servers:
+        ipv4_address: 10.1.10.132
+      guac-net:
+        ipv4_address: 172.25.0.132 # Example IP, adjust as needed
+      dns:
+        - 172.30.0.30
+        - 172.30.0.29
+        - 10.1.10.5
+    stdin_open: true
+    tty: true
+    cap_add:
+      - NET_ADMIN
+      - SYS_ADMIN
+      - SYS_MODULE
+      - NET_RAW
+
+##Global Services Config (for QNAP Container Station)##
+networks:
+  vl.110-servers:
+    name: vl.110-servers
+    driver: qnet
+    driver_opts:
+      iface: "eth0.110"
+    ipam:
+      driver: qnet
+      options:
+        iface: "eth0.110"
+      config:
+        - subnet: 10.1.10.0/24
+          gateway: 10.1.10.1
+  guac-net:
+    driver: bridge
+    driver_opts:
+      com.docker.network.bridge.name: "guac-net"
+      com.docker.network.bridge.default_bridge: "false"
+      com.docker.network.bridge.enable_icc: "true"
+      com.docker.network.bridge.enable_ip_masquerade: "true"
+      com.docker.network.bridge.host_binding_ipv4: "172.25.0.129"
+      com.docker.network.driver.mtu: "9000"
+      com.docker.network.bridge.gateway_mode_ipv4: "nat"
+    ipam:
+      config:
+        - subnet: 172.25.0.128/26 # Example subnet, adjust as needed
+
+
+# Note: Ensure to initialize the Guacamole database schema in MySQL before starting the guacamole service.
+# You can run this as either a docker container or a separate SQL server. See:
+# https://guacamole.apache.org/doc/gug/jdbc-auth.html#_mysql
+
+
+
+# SQL Parameters:
+# MYSQL_ROOT_PASSWORD: MariaDBRootPass # <<< Change this
+# MYSQL_DATABASE: guacamole_db_on_qnap
+# MYSQL_USER: GuacamoleDB-admin
+# MYSQL_PASSWORD: MariaDBUserPass # <<< Change this
+# ipv4_address: 172.25.0.12 # Example IP, adjust as needed
+# MYSQL_HOSTNAME: QNAP-GuacamoleDB
+# MYSQL_PORT: 13307
+
+# Docker containers can interact with Unix domain sockets in several ways, primarily for inter-process communication (IPC) or to interact with the Docker daemon itself.
+# docker container domain socket to QNAP MariaDB socket:
+# /var/run/mariadb10.sock
+# Local QNAP MariaDB management: /usr/local/mariadb/bin/mysql -u root -p -h localhost -P 13307
+# Permit remote access to MariaDB: https://www.qnap.com/en/how-to/tutorial/article/how-to-enable-remote-access-to-mariadb-database-server/
+# QNAP Container Station MariaDB Docker: https://www.qnap.com/en/how-to/tutorial/article/how-to-set-up-mariadb-server-in-container-station/
+# CREATE USER 'GuacamoleDB-admin'@'10.1.10.0/255.255.255.0' IDENTIFIED BY 'MariaDBUserPass'; -- Create user first, host can be '%' or a specific IP
+# CREATE USER 'GuacamoleDB-admin'@'172.25.0.128/255.255.255.192' IDENTIFIED BY 'MariaDBUserPass';
+# CREATE USER 'GuacamoleDB-admin'@'192.168.98.0/255.255.254.0' IDENTIFIED BY 'MariaDBUserPass';
+# CREATE USER 'GuacamoleDB-admin'@'localhost' IDENTIFIED BY 'MariaDBUserPass';
+# CREATE DATABASE guacamole_db_on_qnap; -- Create the database
+# USE guacamole_db_on_qnap; -- Select the database
+# GRANT ALL PRIVILEGES ON guacamole_db_on_qnap.* TO 'GuacamoleDB-admin'@'10.1.10.0/255.255.255.0'; -- Grant privileges for the Servers DMZ subnet
+# GRANT ALL PRIVILEGES ON guacamole_db_on_qnap.* TO 'GuacamoleDB-admin'@'172.25.0.128/255.255.255.192'; -- Grant privileges for the Local container subnet
+# GRANT ALL PRIVILEGES ON guacamole_db_on_qnap.* TO 'GuacamoleDB-admin'@'192.168.98.0/255.255.254.0'; -- Grant privileges for the remote management subnet
+# GRANT ALL PRIVILEGES ON guacamole_db_on_qnap.* TO 'GuacamoleDB-admin'@'localhost'; -- Grant privileges for localhost
+# FLUSH PRIVILEGES;
